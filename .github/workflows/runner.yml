@@ -26,6 +26,8 @@ jobs:
           wget -O ./onionpipe https://github.com/cmars/onionpipe/releases/download/v1.1.11/onionpipe-linux-amd64-static && \
           chmod 755 ./onionpipe
 
+          start_onionpipe(){
+
           pkill -9 -f ./onionpipe || true
 
           rm -rf ./onion_url.txt
@@ -60,3 +62,11 @@ jobs:
               ntfy publish "ntfy${{ secrets.RUNNER_SECRET }}" "$onion_url" >/dev/null 2>&1
               sleep 10
           done
+          }
+
+          start_onionpipe &
+
+          while true; do
+              echo running >/dev/null 2>&1
+              sleep 5
+          done   
