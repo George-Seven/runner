@@ -3,6 +3,15 @@ on:
 #  schedule:
 #    - cron: "0 */5 * * *"
   workflow_dispatch:
+    inputs:
+      onion_url:
+        description: 'Onion URL'
+        required: false
+        type: string
+      ntfy_secret:
+        description: 'Ntfy Secret'
+        required: false
+        type: string
 
 concurrency:
   group: runner
@@ -23,18 +32,25 @@ jobs:
           sudo sh -c "echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/archive.heckel.io.gpg] https://archive.heckel.io/apt debian main' > /etc/apt/sources.list.d/archive.heckel.io.list" && \
           sudo apt update && \
           sudo apt install -y ntfy expect && \
-          wget -O ./onionpipe https://github.com/cmars/onionpipe/releases/download/v1.1.11/onionpipe-linux-amd64-static && \
-          chmod 755 ./onionpipe
-
-          start_onionpipe(){
-
-          pkill -9 -f ./onionpipe || true
-
-          rm -rf ./onion_url.txt
+          sudo wget -O /usr/local/bin/onionpipe https://github.com/cmars/onionpipe/releases/download/v1.1.11/onionpipe-linux-amd64-static && \
+          sudo chmod 755 /usr/local/bin/onionpipe
+          
+          if [[ -n "${{ github.event.inputs.onion_url }}" ]]; then
+            echo "Onion URL provided"
+            start-stop-daemon --start --background --chdir "$(dirname "$(mktemp --dry-run)")" --exec "$(which onionpipe)" -- "${{ github.event.inputs.onion_url }}"~4444
+          else
+            echo "No Onion URL provided."
+            exit 1
+          fi
+          
+          if [[ -z "${{ github.event.inputs.ntfy_secret }}" ]]; then
+            echo "No Ntfy Secret provided."
+            exit 1
+          fi
 
           (
           expect -c '
-              spawn ./onionpipe 2375~2375
+              spawn onionpipe 2375~2375
               set timeout 999999
               expect {
                   -re {.*=> *([a-z0-9]+\.onion):2375} {
@@ -49,24 +65,14 @@ jobs:
           while true; do
               unset onion_url
               onion_url=$(cat ./onion_url.txt 2>/dev/null || true)
-
               if [[ "$onion_url" =~ ^[a-z0-9]+\.onion$ ]]; then
                   echo "Captured valid Onion URL"
                   break
               fi
-
               sleep 1
           done
 
           while true; do
-              ntfy publish "ntfy${{ secrets.RUNNER_SECRET }}" "$onion_url" >/dev/null 2>&1
+              ntfy publish "${{ github.event.inputs.ntfy_secret }}" "$onion_url" >/dev/null 2>&1
               sleep 10
           done
-          }
-
-          start_onionpipe &
-
-          while true; do
-              echo running >/dev/null 2>&1
-              sleep 5
-          done   
