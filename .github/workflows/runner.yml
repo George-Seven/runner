@@ -23,15 +23,18 @@ jobs:
     steps:
       - name: Runner
         run: |
-          sudo sed -i -E 's|ExecStart=/usr/bin/dockerd.*|ExecStart=/usr/bin/dockerd -H fd:// -H tcp://localhost:2375|g' /lib/systemd/system/docker.service && \
-          sudo systemctl daemon-reload && \
-          sudo systemctl restart docker && \
-          sudo mkdir -p /etc/apt/keyrings && \
-          curl -fsSL https://archive.heckel.io/apt/pubkey.txt | sudo gpg --dearmor -o /etc/apt/keyrings/archive.heckel.io.gpg && \
-          sudo apt install -y apt-transport-https && \
-          sudo sh -c "echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/archive.heckel.io.gpg] https://archive.heckel.io/apt debian main' > /etc/apt/sources.list.d/archive.heckel.io.list" && \
-          sudo apt update && \
-          sudo apt install -y ntfy expect && \
+          sudo sed -i -E 's|ExecStart=/usr/bin/dockerd.*|ExecStart=/usr/bin/dockerd -H fd:// -H tcp://localhost:2375|g' /lib/systemd/system/docker.service
+          sudo systemctl daemon-reload
+          sudo systemctl restart docker
+          #sudo mkdir -p /etc/apt/keyrings && \
+          #curl -fsSL https://archive.heckel.io/apt/pubkey.txt | sudo gpg --dearmor -o /etc/apt/keyrings/archive.heckel.io.gpg && \
+          #sudo apt install -y apt-transport-https && \
+          #sudo sh -c "echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/archive.heckel.io.gpg] https://archive.heckel.io/apt debian main' > /etc/apt/sources.list.d/archive.heckel.io.list" && \
+          #sudo apt update && \
+          #sudo apt install -y ntfy expect && \
+          wget -O ntfy.deb https://github.com/binwiederhier/ntfy/releases/download/v2.11.0/ntfy_2.11.0_linux_amd64.deb
+          sudo apt install -y ./ntfy.deb
+          sudo apt install -y expect
           sudo wget -O /usr/local/bin/onionpipe https://github.com/cmars/onionpipe/releases/download/v1.1.11/onionpipe-linux-amd64-static && \
           sudo chmod 755 /usr/local/bin/onionpipe
           
