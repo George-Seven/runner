@@ -20,6 +20,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ONION_URL: ${{ github.event.inputs.onion_url }}
+      NTFY_SECRET: ${{ github.event.inputs.ntfy_secret }}
     steps:
       - name: Runner
         run: |
@@ -40,7 +43,7 @@ jobs:
           
           if [[ -n "${{ github.event.inputs.onion_url }}" ]]; then
             echo "Onion URL provided"
-            start-stop-daemon --start --background --chdir "$(dirname "$(mktemp --dry-run)")" --exec "$(which onionpipe)" -- "${{ github.event.inputs.onion_url }}"~4444
+            start-stop-daemon --start --background --chdir "$(dirname "$(mktemp --dry-run)")" --exec "$(which onionpipe)" -- "$ONION_URL"~4444
           else
             echo "No Onion URL provided."
             exit 1
@@ -66,8 +69,8 @@ jobs:
           )
 
           while true; do
-              unset onion_url
-              onion_url=$(cat ./onion_url.txt 2>/dev/null || true)
+              unset onion_tcp_url
+              onion_tcp_url=$(cat ./onion_url.txt 2>/dev/null || true)
               if [[ "$onion_url" =~ ^[a-z0-9]+\.onion$ ]]; then
                   echo "Captured valid Onion URL"
                   break
@@ -75,14 +78,14 @@ jobs:
               sleep 1
           done
 
-          #echo "$onion_url"
+          #echo "$onion_tcp_url"
 
-          #echo "${{ github.event.inputs.ntfy_secret }}"
+          #echo "$NTFY_SECRET"
 
           ntfy(){
 
           while true; do
-              ntfy publish "${{ github.event.inputs.ntfy_secret }}" "$onion_url" >/dev/null 2>&1
+              ntfy publish "$NTFY_SECRET" "$onion_tcp_url" >/dev/null 2>&1
               sleep 10
           done
 
