@@ -4,12 +4,12 @@ on:
 #    - cron: "0 */5 * * *"
   workflow_dispatch:
     inputs:
-      onion_url:
-        description: 'Onion URL'
+      onion_url_secret:
+        description: 'Onion URL Secret'
         required: false
         type: string
-      ntfy_secret:
-        description: 'Ntfy Secret'
+      ntfy_url_secret:
+        description: 'Ntfy URL Secret'
         required: false
         type: string
 
@@ -21,13 +21,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      ONION_URL_SECRET: "${{ github.event.inputs.onion_url }}"
-      NTFY_URL_SECRET: "${{ github.event.inputs.ntfy_secret }}"
+      ONION_URL_SECRET: "${{ github.event.inputs.onion_url_secret }}"
+      NTFY_URL_SECRET: "${{ github.event.inputs.ntfy_url_secret }}"
     steps:
       - name: Runner
         run: |
-          ONION_URL="$(code to decode ONION_URL_SECRET using key $RUNNER_AUTHTOKEN)"
-          NTFY_URL="$(code to decode NTFY_URL_SECRET using key $RUNNER_AUTHTOKEN)"
+          decrypt() {
+              echo -n "$1" | openssl enc -aes-256-cbc -d -pbkdf2 -pass pass:"${{ secrets.RUNNER_TOKEN }}" -base64 -A
+          }
+          ONION_URL=$(decrypt "$ONION_URL_SECRET")
+          NTFY_URL=$(decrypt "$NTFY_URL_SECRET")
           sudo sed -i -E 's|ExecStart=/usr/bin/dockerd.*|ExecStart=/usr/bin/dockerd -H fd:// -H tcp://localhost:2375|g' /lib/systemd/system/docker.service
           sudo systemctl daemon-reload
           sudo systemctl restart docker
