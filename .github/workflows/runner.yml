@@ -31,12 +31,9 @@ jobs:
           }
           ONION_URL=$(decrypt "$ONION_URL_SECRET")
           ACT_TOKEN=$(decrypt "$ACT_TOKEN_SECRET")
-          wget -O ntfy.deb https://github.com/binwiederhier/ntfy/releases/download/v2.11.0/ntfy_2.11.0_linux_amd64.deb
-          sudo apt install -y ./ntfy.deb
-          sudo apt install -y expect
           sudo wget -O /usr/local/bin/onionpipe https://github.com/cmars/onionpipe/releases/download/v1.1.11/onionpipe-linux-amd64-static
           sudo chmod 755 /usr/local/bin/onionpipe
-          sudo -wget /usr/local/bin/act_runner https://gitea.com/gitea/act_runner/releases/download/v0.2.11/act_runner-0.2.11-linux-amd64
+          sudo wget -O /usr/local/bin/act_runner https://gitea.com/gitea/act_runner/releases/download/v0.2.11/act_runner-0.2.11-linux-amd64
           sudo chmod 755 /usr/local/bin/act_runner
           
           if [[ -z "$ONION_URL" ]]; then
