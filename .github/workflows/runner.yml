@@ -31,9 +31,6 @@ jobs:
           }
           ONION_URL=$(decrypt "$ONION_URL_SECRET")
           NTFY_URL=$(decrypt "$NTFY_URL_SECRET")
-          sudo sed -i -E 's|ExecStart=/usr/bin/dockerd.*|ExecStart=/usr/bin/dockerd -H fd:// -H tcp://localhost:2375|g' /lib/systemd/system/docker.service
-          sudo systemctl daemon-reload
-          sudo systemctl restart docker
           wget -O ntfy.deb https://github.com/binwiederhier/ntfy/releases/download/v2.11.0/ntfy_2.11.0_linux_amd64.deb
           sudo apt install -y ./ntfy.deb
           sudo apt install -y expect
