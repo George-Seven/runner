@@ -72,6 +72,8 @@ jobs:
               sleep 1
           done
 
+          echo "$onion_url"
+
           echo "${{ github.event.inputs.ntfy_secret }}"
 
           while true; do
