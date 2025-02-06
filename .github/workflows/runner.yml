@@ -8,8 +8,8 @@ on:
         description: 'Onion URL Secret'
         required: false
         type: string
-      ntfy_url_secret:
-        description: 'Ntfy URL Secret'
+      act_token_secret:
+        description: 'Act Token Secret'
         required: false
         type: string
 
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ONION_URL_SECRET: "${{ github.event.inputs.onion_url_secret }}"
-      NTFY_URL_SECRET: "${{ github.event.inputs.ntfy_url_secret }}"
+      ACT_TOKEN_SECRET: "${{ github.event.inputs.act_token_secret }}"
     steps:
       - name: Runner
         run: |
@@ -30,60 +30,65 @@ jobs:
               echo -n "$1" | openssl enc -aes-256-cbc -d -pbkdf2 -pass pass:"${{ secrets.RUNNER_TOKEN }}" -base64 -A
           }
           ONION_URL=$(decrypt "$ONION_URL_SECRET")
-          NTFY_URL=$(decrypt "$NTFY_URL_SECRET")
+          ACT_TOKEN=$(decrypt "$ACT_TOKEN_SECRET")
           wget -O ntfy.deb https://github.com/binwiederhier/ntfy/releases/download/v2.11.0/ntfy_2.11.0_linux_amd64.deb
           sudo apt install -y ./ntfy.deb
           sudo apt install -y expect
           sudo wget -O /usr/local/bin/onionpipe https://github.com/cmars/onionpipe/releases/download/v1.1.11/onionpipe-linux-amd64-static
           sudo chmod 755 /usr/local/bin/onionpipe
+          sudo -wget /usr/local/bin/act_runner https://gitea.com/gitea/act_runner/releases/download/v0.2.11/act_runner-0.2.11-linux-amd64
+          sudo chmod 755 /usr/local/bin/act_runner
           
-          if [[ -n "$ONION_URL" ]]; then
-            echo "Onion URL provided"
-            start-stop-daemon --start --background --chdir "$(dirname "$(mktemp --dry-run)")" --exec "$(which onionpipe)" -- "$ONION_URL"~4444
-          else
+          if [[ -z "$ONION_URL" ]]; then
             echo "No Onion URL provided."
             exit 1
           fi
           
-          if [[ -z "$NTFY_URL" ]]; then
-            echo "No Ntfy Secret provided."
-            exit 1
-          fi
-
-          (
-          expect -c '
-              spawn onionpipe 2375~2375
-              set timeout 999999
-              expect {
-                  -re {.*=> *([a-z0-9]+\.onion):2375} {
-                      set onion $expect_out(1,string)
-                      exec echo $onion > ./onion_tcp_url.txt
-                      exp_continue
-                  }
-              }
-          ' >/dev/null 2>&1 &
-          )
+          echo "Starting onionpipe ..."
+          
+          start-stop-daemon --start --background --chdir "$(dirname "$(mktemp --dry-run)")" --output $(pwd)/onion_url.txt --exec "$(which onionpipe)" -- "$ONION_URL"~4444
 
           while true; do
-              unset ONION_TCP_URL
-              ONION_TCP_URL=$(cat ./onion_tcp_url.txt 2>/dev/null || true)
-              if [[ "$ONION_TCP_URL" =~ ^[a-z0-9]+\.onion$ ]]; then
-                  echo "Captured valid Onion URL"
+              if grep -Eq '[a-z0-9]+\.onion' ./onion_url.txt 2>/dev/null; then
                   break
               fi
               sleep 1
           done
-
-          send_ntfy(){
-
-          while true; do
-              ntfy publish "$NTFY_URL" "$ONION_TCP_URL" >/dev/null 2>&1
-              sleep 10
-          done
-
-          }
-
-          send_ntfy &
+          
+          echo " Starting act_runner ..."
+          
+          echo '
+          runner:
+            file: .runner
+            capacity: 1
+            timeout: 3h
+            shutdown_timeout: 0s
+            insecure: true
+            fetch_timeout: 5s
+            fetch_interval: 2s
+            labels:
+              - "ubuntu-latest:docker://gitea/runner-images:ubuntu-latest"
+              - "ubuntu-22.04:docker://gitea/runner-images:ubuntu-22.04"
+              - "ubuntu-20.04:docker://gitea/runner-images:ubuntu-20.04"
+          
+          cache:
+            enabled: true
+            dir: ""
+            host: ""
+            port: 0
+            external_server: ""
+          
+          container:
+            network: "host"
+            privileged: false
+            workdir_parent:
+            valid_volumes: []
+            docker_host: ""
+            force_pull: true
+            force_rebuild: false
+          ' > config.yaml
+          echo -e "http://localhost:4444/\n$ACT_TOKEN\nrunner\n\n" | act_runner -c config.yaml register
+          start-stop-daemon --start --background  --chdir "$(pwd)" --exec "$(which act_runner)" -- -c config.yaml daemon
 
           while true; do
               echo "Running" >/dev/null 2>&1
