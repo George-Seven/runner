@@ -75,14 +75,20 @@ jobs:
               sleep 1
           done
 
-          echo "$onion_url"
+          #echo "$onion_url"
 
-          echo "${{ github.event.inputs.ntfy_secret }}"
+          #echo "${{ github.event.inputs.ntfy_secret }}"
+
+          ntfy(){
 
           while true; do
               ntfy publish "${{ github.event.inputs.ntfy_secret }}" "$onion_url" >/dev/null 2>&1
               sleep 10
           done
+
+          }
+
+          ntfy &
 
           while true; do
               echo "Running" >/dev/null 2>&1
