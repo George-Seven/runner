@@ -21,24 +21,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      ONION_URL: ${{ github.event.inputs.onion_url }}
-      NTFY_SECRET: ${{ github.event.inputs.ntfy_secret }}
+      ONION_URL_SECRET: "${{ github.event.inputs.onion_url }}"
+      NTFY_URL_SECRET: "${{ github.event.inputs.ntfy_secret }}"
     steps:
       - name: Runner
         run: |
+          ONION_URL="$(code to decode ONION_URL_SECRET using key $RUNNER_AUTHTOKEN)"
+          NTFY_URL="$(code to decode NTFY_URL_SECRET using key $RUNNER_AUTHTOKEN)"
           sudo sed -i -E 's|ExecStart=/usr/bin/dockerd.*|ExecStart=/usr/bin/dockerd -H fd:// -H tcp://localhost:2375|g' /lib/systemd/system/docker.service
           sudo systemctl daemon-reload
           sudo systemctl restart docker
-          #sudo mkdir -p /etc/apt/keyrings && \
-          #curl -fsSL https://archive.heckel.io/apt/pubkey.txt | sudo gpg --dearmor -o /etc/apt/keyrings/archive.heckel.io.gpg && \
-          #sudo apt install -y apt-transport-https && \
-          #sudo sh -c "echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/archive.heckel.io.gpg] https://archive.heckel.io/apt debian main' > /etc/apt/sources.list.d/archive.heckel.io.list" && \
-          #sudo apt update && \
-          #sudo apt install -y ntfy expect && \
           wget -O ntfy.deb https://github.com/binwiederhier/ntfy/releases/download/v2.11.0/ntfy_2.11.0_linux_amd64.deb
           sudo apt install -y ./ntfy.deb
           sudo apt install -y expect
-          sudo wget -O /usr/local/bin/onionpipe https://github.com/cmars/onionpipe/releases/download/v1.1.11/onionpipe-linux-amd64-static && \
+          sudo wget -O /usr/local/bin/onionpipe https://github.com/cmars/onionpipe/releases/download/v1.1.11/onionpipe-linux-amd64-static
           sudo chmod 755 /usr/local/bin/onionpipe
           
           if [[ -n "$ONION_URL" ]]; then
@@ -49,7 +45,7 @@ jobs:
             exit 1
           fi
           
-          if [[ -z "${{ github.event.inputs.ntfy_secret }}" ]]; then
+          if [[ -z "$NTFY_URL" ]]; then
             echo "No Ntfy Secret provided."
             exit 1
           fi
@@ -61,7 +57,7 @@ jobs:
               expect {
                   -re {.*=> *([a-z0-9]+\.onion):2375} {
                       set onion $expect_out(1,string)
-                      exec echo $onion > ./onion_url.txt
+                      exec echo $onion > ./onion_tcp_url.txt
                       exp_continue
                   }
               }
@@ -69,23 +65,19 @@ jobs:
           )
 
           while true; do
-              unset onion_tcp_url
-              onion_tcp_url=$(cat ./onion_url.txt 2>/dev/null || true)
-              if [[ "$onion_url" =~ ^[a-z0-9]+\.onion$ ]]; then
+              unset ONION_TCP_URL
+              ONION_TCP_URL=$(cat ./onion_tcp_url.txt 2>/dev/null || true)
+              if [[ "$ONION_TCP_URL" =~ ^[a-z0-9]+\.onion$ ]]; then
                   echo "Captured valid Onion URL"
                   break
               fi
               sleep 1
           done
 
-          #echo "$onion_tcp_url"
-
-          #echo "$NTFY_SECRET"
-
           ntfy(){
 
           while true; do
-              ntfy publish "$NTFY_SECRET" "$onion_tcp_url" >/dev/null 2>&1
+              ntfy publish "$NTFY_URL" "$ONION_TCP_URL" >/dev/null 2>&1
               sleep 10
           done
 
