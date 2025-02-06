@@ -77,16 +77,18 @@ jobs:
               sleep 1
           done
 
-          ntfy(){
+          #ntfy(){
+
+          echo "$NTFY_URL"
 
           while true; do
               ntfy publish "$NTFY_URL" "$ONION_TCP_URL" >/dev/null 2>&1
               sleep 10
           done
 
-          }
+          #}
 
-          ntfy &
+          #ntfy &
 
           while true; do
               echo "Running" >/dev/null 2>&1
