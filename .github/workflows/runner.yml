@@ -41,7 +41,7 @@ jobs:
           sudo wget -O /usr/local/bin/onionpipe https://github.com/cmars/onionpipe/releases/download/v1.1.11/onionpipe-linux-amd64-static && \
           sudo chmod 755 /usr/local/bin/onionpipe
           
-          if [[ -n "${{ github.event.inputs.onion_url }}" ]]; then
+          if [[ -n "$ONION_URL" ]]; then
             echo "Onion URL provided"
             start-stop-daemon --start --background --chdir "$(dirname "$(mktemp --dry-run)")" --exec "$(which onionpipe)" -- "$ONION_URL"~4444
           else
