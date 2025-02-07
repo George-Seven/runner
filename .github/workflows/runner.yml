@@ -52,7 +52,7 @@ jobs:
               sleep 1
           done
           
-          echo " Starting act_runner ..."
+          echo "Starting act_runner ..."
           
           echo '
           runner:
@@ -86,7 +86,7 @@ jobs:
           ' > config.yaml
           echo -e "http://localhost:4444/\n$ACT_TOKEN\nrunner\n\n" | act_runner -c config.yaml register
           #start-stop-daemon --start --background  --chdir "$(pwd)" --exec "$(which act_runner)" -- -c config.yaml daemon
-          act_runner -c config.yaml daemon
+          act_runner -c config.yaml daemon 2>&1
 
           while true; do
               echo "Running" >/dev/null 2>&1
