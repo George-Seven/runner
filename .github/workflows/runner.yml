@@ -84,8 +84,9 @@ jobs:
             force_pull: true
             force_rebuild: false
           ' > config.yaml
-          echo -e "http://localhost:4444/\n$ACT_TOKEN\nrunner\n\n" | act_runner -c config.yaml register
+          #echo -e "http://localhost:4444/\n$ACT_TOKEN\nrunner\n\n" | act_runner -c config.yaml register
           #start-stop-daemon --start --background  --chdir "$(pwd)" --exec "$(which act_runner)" -- -c config.yaml daemon
+          act_runner register --no-interactive --instance http://localhost:4444/ --token "$ACT_TOKEN"
           act_runner -c config.yaml daemon 2>&1
 
           while true; do
