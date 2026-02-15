@@ -10,13 +10,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Run TorBox cleanup
+      - name: Run TB cleanup
         run: |
-          set -euo pipefail
-
-          API_KEY="${{ secrets.TB_API_TOKEN }}"
+          API_KEY="${{ secrets.TB_API_KEY }}"
           BASE_URL="https://api.torbox.app/v1/api"
-          MAX_IDLE_SECONDS=$((10 * 60))  # 10 minutes
+
+          STALL_SECONDS=$((1 * 60))        # 1 minute
+          META_SECONDS=$((5 * 60))         # 5 minutes
+
+          # Set VERBOSE=1 to enable logging
+          VERBOSE="${VERBOSE:-0}"
 
           response=$(curl -s \
             -H "Authorization: Bearer $API_KEY" \
@@ -24,31 +27,50 @@ jobs:
 
           now=$(date +%s)
 
-          echo "$response" | jq -c '.data[]' | while read -r torrent; do
+          echo "$response" | jq -c '.data[]?' | while read -r torrent; do
               id=$(echo "$torrent" | jq -r '.id')
+              name=$(echo "$torrent" | jq -r '.name')
               status=$(echo "$torrent" | jq -r '.download_state')
               updated=$(echo "$torrent" | jq -r '.updated_at // empty')
 
               idle_time="unknown"
               if [[ -n "$updated" ]]; then
-                  updated_epoch=$(date -d "$updated" +%s 2>/dev/null || echo "")
+                  updated_epoch=$(date -d "$updated" +%s 2>/dev/null)
                   if [[ -n "$updated_epoch" ]]; then
                       idle_time=$((now - updated_epoch))
                   fi
               fi
 
               delete=false
+              action="OK"
 
-              # Condition 1: any stalled state
+              # Rule 1: stalled for ≥1 minute
               if [[ "$status" == *"stalled"* ]]; then
-                  delete=true
+                  if [[ "$idle_time" != "unknown" && "$idle_time" -ge "$STALL_SECONDS" ]]; then
+                      delete=true
+                      action="Deleting (stalled)"
+                  fi
               fi
 
-              # Condition 2: metadata/queued/loading too long
-              if [[ "$status" == *"metadata"* || "$status" == *"queued"* || "$status" == *"loading"* ]]; then
-                  if [[ "$idle_time" != "unknown" && "$idle_time" -gt "$MAX_IDLE_SECONDS" ]]; then
+              # Rule 2: metadata/loading stuck ≥5 minutes
+              if [[ "$status" == *"metadata"* || "$status" == *"loading"* ]]; then
+                  if [[ "$idle_time" != "unknown" && "$idle_time" -ge "$META_SECONDS" ]]; then
                       delete=true
+                      action="Deleting (metadata timeout)"
                   fi
+              fi
+
+              # Explicitly skip queued torrents
+              if [[ "$status" == *"queued"* ]]; then
+                  delete=false
+                  action="OK"
+              fi
+
+              if [[ "$VERBOSE" == "1" ]]; then
+                  printf "Torrent: %-8s | Status: %-25s | Idle: %s sec | Name: %s\n" \
+                      "$id" "$status" "$idle_time" "$name"
+                  echo "  → $action"
+                  echo
               fi
 
               if [[ "$delete" == true ]]; then
