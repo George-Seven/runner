@@ -15,8 +15,8 @@ jobs:
           API_KEY="${{ secrets.TB_API_TOKEN }}"
           BASE_URL="https://api.torbox.app/v1/api"
 
-          STALL_SECONDS=5
-          META_SECONDS=$((5 * 60))         # 5 minutes
+          GENERAL_TIMEOUT=60        # seconds
+          METADATA_TIMEOUT=180      # seconds
 
           # Set VERBOSE=1 to enable logging
           VERBOSE="${VERBOSE:-0}"
@@ -31,10 +31,58 @@ jobs:
               id=$(echo "$torrent" | jq -r '.id')
               name=$(echo "$torrent" | jq -r '.name')
               status=$(echo "$torrent" | jq -r '.download_state')
-              updated=$(echo "$torrent" | jq -r '.updated_at // empty')
+              created=$(echo "$torrent" | jq -r '.created_at // empty')
 
               idle_time="unknown"
-              if [[ -n "$updated" ]]; then
+              if [[ -n "$created" ]]; then
+                  created_epoch=$(date -d "$created" +%s 2>/dev/null)
+                  if [[ -n "$created_epoch" ]]; then
+                      idle_time=$((now - created_epoch))
+                  fi
+              fi
+
+              delete=false
+              action="OK"
+
+              # States that should never be touched
+              if [[ "$status" == *"cached"* || \
+                    "$status" == *"downloading"* || \
+                    "$status" == *"uploading"* || \
+                    "$status" == *"paused"* ]]; then
+                  delete=false
+                  action="OK"
+
+              # Metadata states: allow up to 180 seconds
+              elif [[ "$status" == *"metaDL"* || "$status" == *"checkingResumeData"* ]]; then
+                  if [[ "$idle_time" != "unknown" && "$idle_time" -ge "$METADATA_TIMEOUT" ]]; then
+                      delete=true
+                      action="Deleting (metadata timeout)"
+                  fi
+
+              # All other states: allow only 60 seconds
+              else
+                  if [[ "$idle_time" != "unknown" && "$idle_time" -ge "$GENERAL_TIMEOUT" ]]; then
+                      delete=true
+                      action="Deleting (state timeout)"
+                  fi
+              fi
+
+              if [[ "$VERBOSE" == "1" ]]; then
+                  printf "Torrent: %-8s | Status: %-25s | Idle: %s sec | Name: %s\n" \
+                      "$id" "$status" "$idle_time" "$name"
+                  echo "  → $action"
+                  echo
+              fi
+
+              if [[ "$delete" == true ]]; then
+                  curl -s -X POST \
+                    -H "Authorization: Bearer $API_KEY" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"operation\":\"delete\",\"torrent_id\":$id}" \
+                    "$BASE_URL/torrents/controltorrent" \
+                    > /dev/null
+              fi
+          done              if [[ -n "$updated" ]]; then
                   updated_epoch=$(date -d "$updated" +%s 2>/dev/null)
                   if [[ -n "$updated_epoch" ]]; then
                       idle_time=$((now - updated_epoch))
