@@ -15,7 +15,7 @@ jobs:
           API_KEY="${{ secrets.TB_API_TOKEN }}"
           BASE_URL="https://api.torbox.app/v1/api"
 
-          STALL_SECONDS=$((0 * 60))        # 1 minute
+          STALL_SECONDS=5
           META_SECONDS=$((5 * 60))         # 5 minutes
 
           # Set VERBOSE=1 to enable logging
