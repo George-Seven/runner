@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  cleanup:
+  tb-cleanup:
     runs-on: ubuntu-latest
 
     steps:
